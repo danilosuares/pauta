@@ -10,6 +10,11 @@ create table if not exists public.condos (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.root_admins (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.admins (
   condo_id uuid not null references public.condos(id) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -62,17 +67,25 @@ create table if not exists public.votes (
 create index if not exists votes_session_apartment on public.votes(session_id,apartment_id);
 
 alter table public.condos enable row level security;
+alter table public.root_admins enable row level security;
 alter table public.admins enable row level security;
 alter table public.apartments enable row level security;
 alter table public.votes_sessions enable row level security;
 alter table public.topics enable row level security;
 alter table public.votes enable row level security;
 
+create or replace function public.is_root_admin() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select exists(select 1 from public.root_admins r where r.user_id=auth.uid());
+$$;
+
 create or replace function public.is_condo_admin(p_condo_id uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   select exists(select 1 from public.admins a where a.condo_id=p_condo_id and a.user_id=auth.uid());
 $$;
 
+drop policy if exists "root admin sees own membership" on public.root_admins;
+create policy "root admin sees own membership" on public.root_admins for select to authenticated using (user_id=auth.uid());
 drop policy if exists "admin sees own memberships" on public.admins;
 create policy "admin sees own memberships" on public.admins for select to authenticated using (user_id=auth.uid());
 drop policy if exists "admin sees own condos" on public.condos;
@@ -99,6 +112,7 @@ returns uuid language plpgsql security definer set search_path = '' as $$
 declare v_condo_id uuid;
 begin
   if auth.uid() is null then raise exception 'login_required'; end if;
+  if not public.is_root_admin() then raise exception 'root_admin_required'; end if;
   if length(trim(coalesce(p_name,'')))=0 or length(trim(coalesce(p_admin_number,'')))=0 then raise exception 'required_fields'; end if;
   if p_identity_pattern not in ('number_block','number') then raise exception 'invalid_identity_pattern'; end if;
   if p_identity_pattern='number_block' and length(trim(coalesce(p_admin_block,'')))=0 then raise exception 'block_required'; end if;
@@ -185,6 +199,7 @@ end $$;
 drop trigger if exists votes_update_topic_count on public.votes;
 create trigger votes_update_topic_count after insert or delete on public.votes for each row execute function public.update_topic_vote_count();
 
+revoke all on function public.is_root_admin() from public;
 revoke all on function public.is_condo_admin(uuid) from public;
 revoke all on function public.create_condo(text,text,text,text,text) from public;
 revoke all on function public.create_vote_session(uuid,text,integer) from public;
@@ -192,6 +207,7 @@ revoke all on function public.admin_add_apartment(uuid,text,text,text,text) from
 revoke all on function public.verify_apartment(text,text,text,text) from public;
 revoke all on function public.toggle_vote(text,text,text,text,uuid) from public;
 revoke all on function public.my_votes(text,text,text,text) from public;
+grant execute on function public.is_root_admin() to authenticated;
 grant execute on function public.is_condo_admin(uuid) to authenticated;
 grant execute on function public.create_condo(text,text,text,text,text) to authenticated;
 grant execute on function public.create_vote_session(uuid,text,integer) to authenticated;
@@ -201,4 +217,4 @@ grant execute on function public.toggle_vote(text,text,text,text,uuid) to anon,a
 grant execute on function public.my_votes(text,text,text,text) to anon,authenticated;
 grant select on public.condos,public.votes_sessions,public.topics to anon,authenticated;
 grant insert,update,delete on public.votes_sessions,public.topics to authenticated;
-grant select on public.admins,public.condos,public.apartments to authenticated;
+grant select on public.root_admins,public.admins,public.condos,public.apartments to authenticated;

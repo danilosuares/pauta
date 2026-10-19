@@ -1,36 +1,41 @@
-# Pauta — publicação gratuita
+# Pauta — configuração e publicação
 
-O MVP usa uma página estática e Supabase: o site serve a interface; o banco armazena votações, temas e votos. Há uma demonstração local para conhecer a tela, mas os dados só são compartilhados depois da conexão com o Supabase.
+O Pauta usa uma página estática no GitHub Pages e o Supabase para armazenar votações, apartamentos e votos. A conexão é automática e a tela de configuração não aparece para moradores. A URL e a chave pública do Supabase ficam no arquivo `config.js`; elas são informações de cliente web. Nunca coloque a chave `service_role` nesse arquivo.
 
-## Preparar o banco
+## Configurar o Supabase e o admin root
 
-1. Crie um projeto novo e vazio no [Supabase](https://supabase.com/).
-2. No painel do projeto, abra **SQL Editor**, cole todo o conteúdo de `schema.sql` e execute. Este esquema v2 é para um banco vazio; se você já executou o esquema da versão anterior, crie um novo projeto Supabase para evitar conflito com as tabelas antigas.
-3. Em **Authentication → Users**, crie a conta de administrador com e-mail e senha.
-4. Em **Project Settings → API**, copie a **Project URL** e a chave pública **anon** ou **publishable**. Não use a chave `service_role` no navegador.
+1. O projeto Supabase `pauta` já está criado. Abra o **SQL Editor** desse projeto.
+2. Em **Authentication → Users**, use a conta escolhida como admin root. Não habilite cadastro público de usuários.
+3. Cole e execute todo o conteúdo de `schema.sql`. O arquivo configura as tabelas e políticas sem apagar os registros atuais.
+4. Copie o UUID da conta root em **Authentication → Users**. No SQL Editor, execute o comando abaixo substituindo o UUID:
 
-## Publicar o site sem custo
+   ```sql
+   insert into public.root_admins (user_id) values ('UUID_DA_CONTA_ROOT');
+   ```
 
-1. Crie um repositório público no GitHub e coloque `index.html` na raiz.
-2. No repositório, abra **Settings → Pages** e escolha publicar a branch principal a partir da pasta raiz (`/`). O GitHub Pages oferece publicação gratuita em repositórios públicos no plano GitHub Free. O endereço ficará parecido com `https://seu-usuario.github.io/nome-do-repositorio/`.
-3. Abra o endereço publicado, clique **Conectar** e informe a URL e a chave pública do Supabase.
-4. Na aba **Administração**, conecte a conta, entre e crie o condomínio. Escolha o padrão de identidade: número + bloco (padrão) ou apenas número.
-5. Cadastre os apartamentos, com celular de contato e PIN individual. O par número + bloco (ou o número, conforme o padrão escolhido) precisa ser único naquele condomínio.
-6. Crie uma ou mais votações, adicione os temas e copie o link direto de cada votação para compartilhar. Cada votação pode ser encerrada pelo painel; o link continua mostrando os resultados.
-7. Cada morador abre o link da votação e informa a identidade do apartamento e o PIN. Celulares ficam como contato cadastrado e não são usados como etapa de verificação.
+5. Em **Project Settings → API**, copie a **Project URL** e a chave pública **anon** ou **publishable**.
+6. Abra `config.js` e preencha `supabaseUrl` e `supabaseAnonKey` com esses valores. Não use `service_role`.
+7. Publique `index.html`, `config.js`, `schema.sql` e `LEIA-ME.md` na raiz do repositório GitHub. No GitHub, ative **Settings → Pages** para publicar a branch principal a partir da pasta raiz (`/`).
+8. Acesse a URL do site e abra **Administração**. Entre com o e-mail e senha da conta root. O painel root mostra o estado da conexão; somente essa conta pode criar condomínios.
+9. Ao criar um condomínio, a conta root também se torna administradora daquele condomínio. Cadastre os demais apartamentos e os administradores necessários usando o fluxo administrativo disponível.
 
-O projeto do Supabase deve permanecer ativo e dentro dos limites do plano escolhido; consulte o painel de uso para confirmar os limites atuais. A hospedagem do site e o banco são serviços separados.
+Para trocar o projeto Supabase depois, atualize `config.js` e publique a alteração no GitHub. A chave pública é visível para qualquer visitante, como é esperado em uma aplicação web; as permissões e políticas do banco controlam o acesso. Nunca compartilhe nem publique a chave `service_role`.
 
-## O que já está no MVP
+## Usar as votações
+
+1. Na aba **Administração**, crie o condomínio e escolha o padrão de identidade: número + bloco ou apenas número.
+2. Cadastre os apartamentos com celular de contato e PIN individual. A identidade escolhida é única dentro do condomínio.
+3. Crie uma ou mais votações, adicione temas e copie o link direto de cada votação para compartilhar.
+4. O morador abre o link, informa a identidade e o PIN e distribui até o limite definido. Votações encerradas continuam disponíveis para consulta dos resultados.
+
+O projeto do Supabase deve permanecer ativo e dentro dos limites do plano escolhido; confira o painel para os limites atuais.
+
+## O que inclui o MVP
 
 - Interface em português, adaptável a celular.
-- Condomínios separados, cada um com seu padrão de identidade e vários links de votação.
-- Identidade única por número + bloco ou apenas número, definida ao criar o condomínio.
-- Número de celular cadastrado para contato administrativo e do apartamento; o acesso à votação usa identidade e PIN individual (sem confirmação por SMS).
-- Cada votação pode ser encerrada; o link permanece válido para consulta dos resultados.
-- Limite de votos por apartamento e um voto por tema.
-- O morador pode retirar um voto e escolher outro enquanto a votação estiver aberta.
-- Resultados e ranking compartilhados; a tela atualiza automaticamente a cada 15 segundos.
-- O banco guarda PINs com hash e aplica as regras de votação no servidor. As políticas SQL deixam temas/resultados legíveis publicamente e escondem os registros internos de apartamentos e votos.
-
-Os resultados ficam visíveis para qualquer pessoa que tenha o endereço. O app não coleta nome, e-mail ou unidade fora do PIN que o próprio morador fornece na sessão.
+- Vários condomínios, com várias votações e links próprios.
+- Identidade por número + bloco ou apenas número, com unicidade dentro do condomínio.
+- PIN de acesso individual por apartamento, armazenado como hash.
+- Limite de votos por apartamento, um voto por tema e opção de retirar voto enquanto a votação estiver aberta.
+- Resultados e ranking compartilhados, com atualização automática.
+- Regras SQL e RLS para limitar operações de administração aos administradores autorizados e aplicar a cota de votos no servidor.
