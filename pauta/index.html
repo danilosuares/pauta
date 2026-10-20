@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f9fc">
+  <title>Pauta · votação</title>
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <a class="brand" id="voteBrand" href="./" aria-label="Pauta"><span class="mark">P</span><span>pauta</span></a>
+      <div class="topright"><span><i class="dot"></i><span id="connection">Conectando</span></span></div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow" id="condoName">Vozes que ajudam a decidir</div>
+        <h1 id="voteTitle">Sua opinião importa.</h1>
+        <p id="voteDescription">Escolha os temas que você gostaria de priorizar.</p>
+      </div>
+    </section>
+
+    <div id="stateMessage" class="empty hidden" aria-live="polite"></div>
+    <section id="voteContent" class="hidden">
+      <div class="summary">
+        <div class="summary-item"><strong id="votesUsed">0</strong><span>votos usados</span><div class="progress"><span id="voteProgress" style="width:0%"></span></div></div>
+        <div class="summary-item"><strong id="votesLeft">0</strong><span>votos disponíveis</span><div style="height:8px;margin-top:10px;color:var(--muted);font-size:12px" id="voteStatus">Votação aberta</div></div>
+      </div>
+      <div class="section-title"><h2>Temas da votação</h2><a class="toplink" id="tallyLink" href="../apuracao/">Ver apuração completa →</a></div>
+      <div id="topicList" class="cards"></div>
+      <p id="voteHint" class="hint">Toque no 👍 para votar. Toque de novo para retirar seu voto.</p>
+      <div class="card box" style="margin-top:20px">
+        <div class="row"><div><strong id="residentLabel">Identifique seu apartamento</strong><div class="small" id="residentHelp">Seu apartamento e PIN ficam protegidos.</div></div><button class="btn secondary" id="identityButton">Entrar</button></div>
+      </div>
+    </section>
+
+    <footer class="footer">pauta · uma ferramenta simples para ouvir quem mora aqui</footer>
+  </div>
+
+  <div id="identityModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="identityHeading">
+    <div class="modal-box">
+      <h2 id="identityHeading">Primeiro acesso</h2>
+      <p class="small" id="identityInstruction">Informe o número do apartamento e crie um PIN pessoal para registrar seus votos.</p>
+      <div class="field"><label for="apartmentNumber">Número do apartamento</label><input id="apartmentNumber" inputmode="text" autocomplete="off" placeholder="Ex.: 87"></div>
+      <div class="field block-field"><label for="apartmentBlock">Bloco</label><input id="apartmentBlock" autocomplete="off" placeholder="Ex.: A"></div>
+      <div class="field"><label for="pin">PIN (mínimo 4 caracteres)</label><input id="pin" type="password" autocomplete="new-password"></div>
+      <div class="field hidden" id="pinConfirmField"><label for="pinConfirm">Confirme o PIN</label><input id="pinConfirm" type="password" autocomplete="new-password"></div>
+      <div class="row"><button class="btn secondary" id="cancelIdentity">Cancelar</button><button class="btn" id="confirmIdentity">Criar cadastro e entrar</button></div>
+      <button class="btn secondary" id="toggleRegistration" style="margin-top:10px;width:100%">Já tenho cadastro</button>
+      <div id="identityError" class="small" role="alert" style="color:var(--red);margin-top:10px"></div>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { supabaseUrl, supabaseAnonKey } from '../config.js';
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const code = new URL(location.href).searchParams.get('v')?.toUpperCase() ?? '';
+    const db = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+    let vote = null, topics = [], resident = null, myVotes = [], registrationMode = true;
+
+    function showMessage(title, description) {
+      $('stateMessage').innerHTML = `<strong>${esc(title)}</strong>${esc(description)}`;
+      $('stateMessage').classList.remove('hidden');
+      $('voteContent').classList.add('hidden');
+    }
+
+    function toast(message) {
+      $('toast').textContent = message;
+      $('toast').classList.add('show');
+      window.setTimeout(() => $('toast').classList.remove('show'), 2200);
+    }
+
+    function updateBlockFields() {
+      const needsBlock = (vote?.condos?.identity_pattern ?? 'number_block') === 'number_block';
+      document.querySelectorAll('.block-field').forEach((element) => element.classList.toggle('hidden', !needsBlock));
+    }
+
+    function render() {
+      if (!vote) return;
+      const isOpen = vote.status === 'open';
+      const limit = vote.vote_limit;
+      $('stateMessage').classList.add('hidden');
+      $('voteContent').classList.remove('hidden');
+      $('condoName').textContent = vote.condos?.name || 'Vozes que ajudam a decidir';
+      $('voteTitle').textContent = vote.title;
+      $('voteDescription').textContent = isOpen ? 'Escolha os temas que você gostaria de priorizar.' : 'Esta votação foi encerrada. Você ainda pode consultar os resultados completos.';
+      $('voteStatus').textContent = isOpen ? 'Votação aberta' : 'Votação encerrada';
+      $('voteStatus').style.color = isOpen ? 'var(--blue-dark)' : 'var(--muted)';
+      $('votesUsed').textContent = resident ? String(myVotes.length) : '—';
+      $('votesLeft').textContent = resident ? String(Math.max(0, limit - myVotes.length)) : String(limit);
+      $('voteProgress').style.width = resident ? `${Math.min(100, (myVotes.length / limit) * 100)}%` : '0%';
+      $('residentLabel').textContent = resident ? `Apartamento ${resident.number}${resident.block ? ` · Bloco ${resident.block}` : ''}` : 'Identifique seu apartamento';
+      $('residentHelp').textContent = resident ? 'Seu voto é registrado com segurança.' : 'Use seu PIN ou crie um no primeiro acesso.';
+      $('identityButton').textContent = resident ? 'Sair' : 'Entrar';
+      $('identityButton').setAttribute('aria-label', resident ? 'Sair do apartamento' : 'Entrar no apartamento');
+      $('voteHint').textContent = isOpen ? 'Toque no 👍 para votar. Toque de novo para retirar seu voto.' : 'Os votos estão fechados. Consulte a apuração completa.';
+      const tallyUrl = new URL('./apuracao/', location.href);
+      tallyUrl.searchParams.set('v', code);
+      $('tallyLink').href = tallyUrl.href;
+      const voteUrl = new URL('./', location.href);
+      voteUrl.searchParams.set('v', code);
+      $('voteBrand').href = voteUrl.href;
+      $('topicList').innerHTML = topics.length ? topics.map((topic) => {
+        const selected = myVotes.includes(topic.id);
+        const locked = !isOpen || (resident && !selected && myVotes.length >= limit);
+        return `<article class="topic-card" data-topic-card="${topic.id}"><div><h3>${esc(topic.title)}</h3>${topic.description ? `<p>${esc(topic.description)}</p>` : ''}</div><button class="vote-button${selected ? ' selected' : ''}" data-vote="${topic.id}" aria-label="${selected ? 'Retirar voto de' : 'Votar em'} ${esc(topic.title)}" aria-pressed="${selected}" ${locked ? 'disabled' : ''}>👍</button></article>`;
+      }).join('') : '<div class="empty"><strong>Os temas ainda não estão disponíveis</strong>Volte em breve para registrar sua opinião.</div>';
+    }
+
+    async function refreshVote() {
+      if (!code) {
+        showMessage('Link de votação incompleto', 'Use o link completo que recebeu para abrir esta votação.');
+        return;
+      }
+      if (!db) {
+        $('connection').textContent = 'Indisponível';
+        showMessage('Não foi possível conectar', 'Tente novamente em alguns instantes.');
+        return;
+      }
+      const { data: session, error: sessionError } = await db.from('votes_sessions').select('*,condos(name,identity_pattern)').eq('code', code).maybeSingle();
+      if (sessionError) throw sessionError;
+      if (!session) {
+        showMessage('Votação não encontrada', 'Confira o link e tente novamente.');
+        return;
+      }
+      vote = session;
+      const { data: rows, error: topicsError } = await db.from('topics').select('id,title,description').eq('session_id', vote.id).order('created_at');
+      if (topicsError) throw topicsError;
+      topics = rows ?? [];
+      resident = JSON.parse(sessionStorage.getItem(`pauta-id-${code}`) || 'null');
+      myVotes = [];
+      if (resident) {
+        const { data, error } = await db.rpc('my_votes', {p_vote_code:code,p_apartment_number:resident.number,p_block:resident.block,p_pin:resident.pin});
+        if (error) {
+          sessionStorage.removeItem(`pauta-id-${code}`);
+          resident = null;
+        } else myVotes = data ?? [];
+      }
+      $('connection').textContent = 'Votação online';
+      updateBlockFields();
+      render();
+    }
+
+    function openIdentity() {
+      registrationMode = !sessionStorage.getItem(`pauta-id-${code}`);
+      $('identityHeading').textContent = registrationMode ? 'Primeiro acesso' : 'Acesse seu apartamento';
+      $('identityInstruction').textContent = registrationMode ? 'Informe o número do apartamento e crie um PIN pessoal para registrar seus votos.' : 'Informe o número do apartamento e o PIN criado no primeiro acesso.';
+      $('pinConfirmField').classList.toggle('hidden', !registrationMode);
+      $('confirmIdentity').textContent = registrationMode ? 'Criar cadastro e entrar' : 'Entrar';
+      $('toggleRegistration').textContent = registrationMode ? 'Já tenho cadastro' : 'Primeiro acesso? Crie seu cadastro';
+      $('identityError').textContent = '';
+      $('identityModal').classList.remove('hidden');
+    }
+
+    $('identityButton').addEventListener('click', () => {
+      if (!resident) return openIdentity();
+      sessionStorage.removeItem(`pauta-id-${code}`);
+      resident = null;
+      myVotes = [];
+      render();
+    });
+    $('cancelIdentity').addEventListener('click', () => $('identityModal').classList.add('hidden'));
+    $('identityModal').addEventListener('click', (event) => { if (event.target === $('identityModal')) $('identityModal').classList.add('hidden'); });
+    $('toggleRegistration').addEventListener('click', () => {
+      registrationMode = !registrationMode;
+      $('identityHeading').textContent = registrationMode ? 'Primeiro acesso' : 'Acesse seu apartamento';
+      $('identityInstruction').textContent = registrationMode ? 'Informe o número do apartamento e crie um PIN pessoal para registrar seus votos.' : 'Informe o número do apartamento e o PIN criado no primeiro acesso.';
+      $('pinConfirmField').classList.toggle('hidden', !registrationMode);
+      $('confirmIdentity').textContent = registrationMode ? 'Criar cadastro e entrar' : 'Entrar';
+      $('toggleRegistration').textContent = registrationMode ? 'Já tenho cadastro' : 'Primeiro acesso? Crie seu cadastro';
+      $('identityError').textContent = '';
+    });
+    $('confirmIdentity').addEventListener('click', async () => {
+      const number = $('apartmentNumber').value.trim(), block = $('apartmentBlock').value.trim(), pin = $('pin').value;
+      const needsBlock = (vote?.condos?.identity_pattern ?? 'number_block') === 'number_block';
+      if (!number || (needsBlock && !block) || pin.length < 4) { $('identityError').textContent = 'Informe o apartamento e um PIN com pelo menos 4 caracteres.'; return; }
+      if (registrationMode && pin !== $('pinConfirm').value) { $('identityError').textContent = 'Os PINs não conferem.'; return; }
+      const button = $('confirmIdentity'); button.disabled = true;
+      try {
+        if (registrationMode) {
+          const { error } = await db.rpc('register_apartment', {p_vote_code:code,p_apartment_number:number,p_block:block,p_pin:pin});
+          if (error) throw error;
+        } else {
+          const { data, error } = await db.rpc('verify_apartment', {p_vote_code:code,p_apartment_number:number,p_block:block,p_pin:pin});
+          if (error || !data) throw new Error('Apartamento não cadastrado ou PIN incorreto.');
+        }
+        resident = {number,block,pin};
+        sessionStorage.setItem(`pauta-id-${code}`, JSON.stringify(resident));
+        $('identityModal').classList.add('hidden');
+        $('pin').value = ''; $('pinConfirm').value = '';
+        await refreshVote();
+      } catch (error) {
+        $('identityError').textContent = error.message.includes('identity_already_exists') ? 'Este apartamento já tem cadastro. Entre com o PIN criado no primeiro acesso.' : error.message;
+      } finally { button.disabled = false; }
+    });
+    $('topicList').addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-vote]');
+      if (!button) return;
+      if (!resident) return openIdentity();
+      const card = button.closest('.topic-card');
+      button.classList.add('tap'); card?.classList.add('vote-pop');
+      const wasSelected = myVotes.includes(button.dataset.vote);
+      button.disabled = true;
+      try {
+        const { error } = await db.rpc('toggle_vote', {p_vote_code:code,p_apartment_number:resident.number,p_block:resident.block,p_pin:resident.pin,p_topic_id:button.dataset.vote});
+        if (error) throw error;
+        toast(wasSelected ? 'Voto retirado' : 'Voto registrado');
+        await refreshVote();
+      } catch (error) {
+        toast(error.message.includes('vote_limit') ? 'Você usou todos os votos disponíveis.' : error.message.includes('voting_closed') ? 'Esta votação foi encerrada.' : 'Não foi possível registrar o voto.');
+        await refreshVote();
+      }
+    });
+
+    try { await refreshVote(); } catch (error) { console.error(error); showMessage('Não foi possível carregar a votação', 'Tente novamente em alguns instantes.'); }
+    window.setInterval(() => refreshVote().catch(() => {}), 15000);
+  </script>
+</body>
+</html>
