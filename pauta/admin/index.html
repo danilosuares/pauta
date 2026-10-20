@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f4f9fc">
+  <title>Pauta · administração</title>
+  <link rel="stylesheet" href="../app.css">
+  <style>
+    .admin-shell{width:min(100% - 32px,1120px);margin:auto}.admin-main{padding-bottom:56px}.step{display:flex;align-items:center;gap:10px;margin:0 0 14px}.step-number{width:29px;height:29px;flex:none;display:grid;place-items:center;border-radius:10px;background:var(--blue);color:#fff;font-size:13px;font-weight:800}.step h2{font-size:19px;letter-spacing:-.4px;margin:0}.step-caption{font-size:13px;color:var(--muted);margin:3px 0 0}.admin-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}.field{margin-bottom:12px}.field label{font-size:12px;font-weight:700;color:#4f6880}.field textarea{min-height:116px;resize:vertical}.field input,.field textarea,.field select{padding:11px}.admin-card{padding:20px}.admin-list{display:grid;gap:9px}.admin-row{padding:12px;border:1px solid var(--line);border-radius:13px;background:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px}.admin-row.selected{border-color:#79a9c7;background:#f2f8fc;box-shadow:0 0 0 2px #397da510}.row-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}.row-actions .btn{padding:7px 9px;font-size:12px;text-decoration:none;white-space:nowrap}.btn.danger{background:#fff0f0;color:#a34f55}.selected-vote{padding:14px 16px;background:#edf6fb;border:1px solid #d1e5f0;border-radius:14px;margin-bottom:15px}.selected-vote strong{display:block;font-size:15px;margin-bottom:3px;color:var(--blue-dark)}.form-row{display:flex;gap:10px;align-items:end}.form-row .field{flex:1}.inline-note{margin:8px 0 0}.logout{border:0;background:none;color:var(--blue-dark);font-weight:700}.muted-label{color:var(--muted);font-size:13px}.closed-note{padding:11px 13px;background:#f1f5f7;color:#607488;border-radius:12px;font-size:13px;line-height:1.45;margin-bottom:12px}.mini-actions button{border:0;background:none;color:var(--red);font-size:12px;font-weight:700}.top-nav{display:flex;align-items:center;gap:16px}@media(max-width:760px){.admin-grid{grid-template-columns:1fr}.admin-card{padding:16px}.admin-row{align-items:flex-start;flex-direction:column}.row-actions{justify-content:flex-start}.form-row{display:block}.top-nav{gap:9px}}
+  </style>
+</head>
+<body>
+  <div class="admin-shell">
+    <header class="top">
+      <a class="brand" href="../" aria-label="Pauta"><span class="mark">P</span><span>pauta</span></a>
+      <nav class="top-nav" aria-label="Navegação"><a class="toplink" href="../../">Página inicial</a><span class="topright">Administração</span></nav>
+    </header>
+    <section class="hero"><div><div class="eyebrow">Área restrita</div><h1>Administração</h1><p>Organize cada condomínio, suas votações e os itens de cada pauta.</p></div></section>
+    <main class="admin-main">
+      <div id="adminNote" class="notice">Entre com uma conta autorizada para administrar os condomínios.</div>
+      <section id="rootPanel" class="card admin-card hidden section" aria-label="Configuração do sistema">
+        <div class="section-title"><h2>Admin root · sistema</h2><span class="pill" id="rootConnectionState">Verificando conexão</span></div>
+        <p class="small">A conexão com o banco é privada para as pessoas moradoras. O estado atual é exibido aqui apenas para a conta root.</p>
+      </section>
+      <section id="login" class="card admin-card section" style="max-width:480px">
+        <div class="section-title"><h2>Acesso administrativo</h2></div>
+        <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="username" placeholder="nome@exemplo.com"></div>
+        <div class="field"><label for="password">Senha</label><input id="password" type="password" autocomplete="current-password"></div>
+        <button id="loginBtn" class="btn">Entrar</button><span id="loginState" class="small" style="margin-left:10px"></span>
+      </section>
+      <section id="condoCreate" class="card admin-card section hidden" style="max-width:700px">
+        <div class="step"><span class="step-number">1</span><div><h2>Criar condomínio</h2><p class="step-caption">O primeiro condomínio também ficará associado a esta conta root.</p></div></div>
+        <div class="field"><label for="identityPattern">Como identificar os apartamentos?</label><select id="identityPattern"><option value="number_block">Número e bloco</option><option value="number">Somente número</option></select></div>
+        <div class="field"><label for="condoNameInput">Nome do condomínio</label><input id="condoNameInput" placeholder="Ex.: Residencial Jardim"></div>
+        <div class="admin-grid"><div class="field"><label for="adminNumber">Número do apartamento administrador</label><input id="adminNumber" placeholder="87"></div><div class="field block-field"><label for="adminBlock">Bloco</label><input id="adminBlock" placeholder="A"></div></div>
+        <div class="field"><label for="adminPhone">Celular de contato</label><input id="adminPhone" inputmode="tel" placeholder="(11) 99999-9999"></div>
+        <button class="btn" id="createCondo">Criar condomínio</button>
+      </section>
+      <div id="adminWork" class="hidden">
+        <section class="card admin-card section">
+          <div class="step"><span class="step-number">1</span><div><h2>Condomínio</h2><p class="step-caption">Todas as votações e itens pertencem a um condomínio.</p></div></div>
+          <div class="row"><div class="field" style="flex:1;margin:0"><label for="condoSelect">Condomínio selecionado</label><select id="condoSelect"></select></div><button id="logoutBtn" class="logout">Sair</button></div>
+        </section>
+        <section class="section">
+          <div class="step"><span class="step-number">2</span><div><h2>Votações</h2><p class="step-caption">Crie uma votação ou selecione uma existente para gerenciar seus itens.</p></div></div>
+          <div class="admin-grid">
+            <div class="card admin-card">
+              <h3>Nova votação</h3>
+              <div class="field"><label for="newTitle">Nome da votação</label><input id="newTitle" placeholder="Ex.: Assembleia de novembro"></div>
+              <div class="field"><label for="newLimit">Votos por apartamento</label><input id="newLimit" type="number" min="1" max="50" value="5"></div>
+              <button class="btn" id="createVote">Criar votação</button>
+            </div>
+            <div class="card admin-card">
+              <h3>Votações do condomínio</h3>
+              <div id="sessionList" class="admin-list"><span class="small">Carregando votações…</span></div>
+            </div>
+          </div>
+        </section>
+        <section class="card admin-card section">
+          <div class="step"><span class="step-number">3</span><div><h2>Itens da votação selecionada</h2><p class="step-caption">Cada votação tem sua própria lista de itens.</p></div></div>
+          <div id="selectedVoteLabel" class="selected-vote"><span class="small">Selecione uma votação na etapa acima.</span></div>
+          <div id="closedNote" class="closed-note hidden">Esta votação foi encerrada. Não é mais possível receber votos ou adicionar itens.</div>
+          <div id="itemComposer">
+            <div class="field"><label for="topicImport">Adicionar itens · um por linha</label><textarea id="topicImport" rows="5" placeholder="Melhorias na iluminação&#10;Segurança na entrada&#10;Reforma do salão"></textarea><span class="small">Linhas vazias serão ignoradas. Marcadores “-” no início são removidos.</span></div>
+            <button class="btn" id="importTopics">Adicionar itens à votação selecionada</button>
+          </div>
+          <div id="topicList" class="admin-list" style="margin-top:14px"><span class="small">Os itens aparecerão aqui.</span></div>
+        </section>
+        <section class="card admin-card section">
+          <div class="step"><span class="step-number">4</span><div><h2>Apartamentos</h2><p class="step-caption">Cada morador cadastra seu apartamento e cria o próprio PIN no primeiro acesso.</p></div></div>
+          <div id="unitList" class="admin-list"><span class="small">Carregando apartamentos…</span></div>
+        </section>
+      </div>
+    </main>
+    <footer class="footer">pauta · administração</footer>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module">
+    import { supabaseUrl, supabaseAnonKey } from '../../config.js';
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    const $ = (id) => document.getElementById(id);
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const db = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+    let user = null, isRoot = false, condos = [], condo = null, votes = [], selectedVote = null;
+    const appRoot = new URL('../', location.href);
+    const voteUrl = (code) => { const url = new URL('./', appRoot); url.searchParams.set('v', code); return url.href; };
+    const tallyUrl = (code) => { const url = new URL('apuracao/', appRoot); url.searchParams.set('v', code); return url.href; };
+    function toast(message) { $('toast').textContent = message; $('toast').classList.add('show'); setTimeout(() => $('toast').classList.remove('show'), 2500); }
+    function updateBlockFields() { document.querySelectorAll('.block-field').forEach((field) => field.classList.toggle('hidden', $('identityPattern').value === 'number')); }
+    function statusLabel(status) { return status === 'open' ? 'Em andamento' : 'Encerrada'; }
+
+    async function refreshAdmin() {
+      if (!db || !user) return;
+      const chosenId = condo?.id || $('condoSelect').value || sessionStorage.getItem('pauta-admin-condo');
+      $('rootPanel').classList.toggle('hidden', !isRoot);
+      $('rootConnectionState').textContent = 'Conectado';
+      const { data, error } = await db.from('admins').select('condo_id,admin_number,admin_block,phone,condos(id,name,identity_pattern)').eq('user_id', user.id);
+      if (error) throw error;
+      condos = (data ?? []).map((membership) => ({...membership.condos,admin_number:membership.admin_number,admin_block:membership.admin_block,phone:membership.phone}));
+      $('login').classList.add('hidden');
+      $('condoCreate').classList.toggle('hidden', !isRoot || condos.length > 0);
+      $('adminWork').classList.toggle('hidden', condos.length === 0);
+      if (!condos.length) {
+        if (!isRoot) $('adminNote').textContent = 'Esta conta ainda não tem permissão para administrar um condomínio.';
+        return;
+      }
+      $('adminNote').classList.add('hidden');
+      $('condoSelect').innerHTML = condos.map((item) => `<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('');
+      condo = condos.find((item) => item.id === chosenId) || condos[0];
+      $('condoSelect').value = condo.id;
+      sessionStorage.setItem('pauta-admin-condo', condo.id);
+      await loadCondo();
+    }
+
+    async function loadCondo() {
+      if (!db || !condo) return;
+      const { data: rows, error } = await db.from('votes_sessions').select('*').eq('condo_id', condo.id).order('created_at', {ascending:false});
+      if (error) throw error;
+      votes = rows ?? [];
+      const preferredId = sessionStorage.getItem('pauta-selected-vote');
+      selectedVote = votes.find((item) => item.id === preferredId) || votes[0] || null;
+      if (selectedVote) sessionStorage.setItem('pauta-selected-vote', selectedVote.id);
+      $('sessionList').innerHTML = votes.length ? votes.map((item) => {
+        const selected = item.id === selectedVote?.id;
+        const closed = item.status === 'closed';
+        return `<article class="admin-row${selected ? ' selected' : ''}"><div><strong>${esc(item.title)}</strong><div class="muted-label">${statusLabel(item.status)} · ${item.vote_limit} votos por apartamento</div></div><div class="row-actions"><button class="btn secondary" data-select-vote="${item.id}">${selected ? 'Selecionada' : 'Ver itens'}</button><a class="btn secondary" href="${esc(voteUrl(item.code))}" target="_blank" rel="noopener">Votar ↗</a><a class="btn secondary" href="${esc(tallyUrl(item.code))}" target="_blank" rel="noopener">Apuração ↗</a>${closed ? '' : `<button class="btn danger" data-close-vote="${item.id}">Encerrar</button>`}</div></article>`;
+      }).join('') : '<div class="empty"><strong>Nenhuma votação neste condomínio</strong>Crie a primeira votação ao lado.</div>';
+
+      if (selectedVote) {
+        const closed = selectedVote.status === 'closed';
+        $('selectedVoteLabel').innerHTML = `<strong>${esc(condo.name)} › ${esc(selectedVote.title)}</strong><span class="small">${statusLabel(selectedVote.status)} · ${selectedVote.vote_limit} votos por apartamento · Código ${esc(selectedVote.code)}</span>`;
+        $('closedNote').classList.toggle('hidden', !closed);
+        $('itemComposer').classList.toggle('hidden', closed);
+        const { data: items, error: itemsError } = await db.from('topics').select('id,title,description,votes').eq('session_id', selectedVote.id).order('created_at');
+        if (itemsError) throw itemsError;
+        $('topicList').innerHTML = (items ?? []).length ? items.map((item, index) => `<article class="admin-row"><div><strong>${index + 1}. ${esc(item.title)}</strong>${item.description ? `<div class="muted-label">${esc(item.description)}</div>` : ''}<div class="muted-label">${item.votes} voto${item.votes === 1 ? '' : 's'}</div></div></article>`).join('') : '<div class="empty"><strong>Esta votação ainda não tem itens</strong>Adicione cada item em uma linha no campo acima.</div>';
+      } else {
+        $('selectedVoteLabel').innerHTML = '<span class="small">Crie ou selecione uma votação para ver e gerenciar os itens.</span>';
+        $('closedNote').classList.add('hidden'); $('itemComposer').classList.remove('hidden'); $('topicList').innerHTML = '';
+      }
+      const { data: units, error: unitError } = await db.from('apartments').select('apartment_number,block').eq('condo_id', condo.id).order('apartment_number');
+      if (unitError) throw unitError;
+      $('unitList').innerHTML = (units ?? []).map((unit) => `<div class="admin-row"><span>Apartamento ${esc(unit.apartment_number)}${condo.identity_pattern === 'number_block' ? ` · Bloco ${esc(unit.block)}` : ''}</span></div>`).join('') || '<span class="small">Nenhum apartamento cadastrado.</span>';
+    }
+
+    $('loginBtn').addEventListener('click', async () => {
+      if (!db) { toast('A conexão não está disponível.'); return; }
+      $('loginBtn').disabled = true;
+      try {
+        const { data, error } = await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});
+        if (error) throw error;
+        user = data.user;
+        const { data: root, error: rootError } = await db.rpc('is_root_admin');
+        if (rootError) throw rootError;
+        isRoot = Boolean(root);
+        await refreshAdmin();
+        $('loginState').textContent = isRoot ? 'Admin root' : 'Conectado';
+      } catch (error) { $('loginState').textContent = error.message; }
+      finally { $('loginBtn').disabled = false; }
+    });
+    $('logoutBtn').addEventListener('click', async () => { await db.auth.signOut(); location.reload(); });
+    $('identityPattern').addEventListener('change', updateBlockFields);
+    $('createCondo').addEventListener('click', async () => {
+      try {
+        const { error } = await db.rpc('create_condo', {p_name:$('condoNameInput').value.trim(),p_identity_pattern:$('identityPattern').value,p_admin_number:$('adminNumber').value.trim(),p_admin_block:$('adminBlock').value.trim(),p_phone:$('adminPhone').value.trim()});
+        if (error) throw error;
+        await refreshAdmin(); toast('Condomínio criado.');
+      } catch (error) { toast(error.message); }
+    });
+    $('condoSelect').addEventListener('change', async () => {
+      condo = condos.find((item) => item.id === $('condoSelect').value) || null;
+      if (condo) { sessionStorage.setItem('pauta-admin-condo', condo.id); await loadCondo(); }
+    });
+    $('createVote').addEventListener('click', async () => {
+      try {
+        if (!condo) return toast('Selecione um condomínio.');
+        const { data: code, error } = await db.rpc('create_vote_session', {p_condo_id:condo.id,p_title:$('newTitle').value.trim(),p_vote_limit:Number($('newLimit').value)});
+        if (error) throw error;
+        const { data: created, error: lookupError } = await db.from('votes_sessions').select('id').eq('code', code).single();
+        if (lookupError) throw lookupError;
+        sessionStorage.setItem('pauta-selected-vote', created.id);
+        $('newTitle').value = '';
+        await loadCondo();
+        try { await navigator.clipboard.writeText(voteUrl(code)); toast('Votação criada e link copiado.'); }
+        catch { toast('Votação criada.'); }
+      } catch (error) { toast(error.message); }
+    });
+    $('importTopics').addEventListener('click', async () => {
+      try {
+        if (!selectedVote) return toast('Selecione uma votação.');
+        if (selectedVote.status !== 'open') return toast('Esta votação foi encerrada e não aceita novos itens.');
+        const lines = $('topicImport').value.split(/\r?\n/).map((line) => line.trim().replace(/^[-*•]\s*/, '').trim()).filter(Boolean);
+        if (!lines.length) return toast('Digite pelo menos um item, um por linha.');
+        const items = lines.map((line) => {
+          if (line.length <= 160) return {title:line,description:''};
+          let splitAt = line.lastIndexOf(' ', 160); if (splitAt < 80) splitAt = 160;
+          return {title:line.slice(0,splitAt).trim(),description:line.slice(splitAt).trim()};
+        });
+        if (items.some((item) => item.description.length > 1000)) return toast('Uma linha excede o limite de 1.160 caracteres. Divida esse item em duas linhas.');
+        const { error } = await db.from('topics').insert(items.map((item) => ({...item,session_id:selectedVote.id,created_by:user.id})));
+        if (error) throw error;
+        $('topicImport').value = '';
+        await loadCondo();
+        toast(`${items.length} item${items.length === 1 ? '' : 's'} adicionado${items.length === 1 ? '' : 's'}.`);
+      } catch (error) { toast(error.message.includes('voting_closed') ? 'Esta votação foi encerrada e não aceita novos itens.' : error.message); }
+    });
+    $('sessionList').addEventListener('click', async (event) => {
+      const button = event.target.closest('button'); if (!button) return;
+      if (button.dataset.selectVote) { sessionStorage.setItem('pauta-selected-vote', button.dataset.selectVote); await loadCondo(); return; }
+      if (!button.dataset.closeVote) return;
+      const item = votes.find((candidate) => candidate.id === button.dataset.closeVote);
+      if (!item || item.status !== 'open') return;
+      if (!confirm(`Encerrar “${item.title}”? Depois disso, não será mais possível votar nem adicionar itens.`)) return;
+      try {
+        const { error } = await db.from('votes_sessions').update({status:'closed'}).eq('id', item.id).eq('status','open');
+        if (error) throw error;
+        await loadCondo(); toast('Votação encerrada.');
+      } catch (error) { toast(error.message); }
+    });
+    if (!db) $('adminNote').textContent = 'A conexão do sistema ainda não está configurada.';
+    else {
+      try {
+        const { data: sessionData } = await db.auth.getSession();
+        user = sessionData.session?.user ?? null;
+        if (user) { const { data } = await db.rpc('is_root_admin'); isRoot = Boolean(data); await refreshAdmin(); }
+      } catch (error) { $('adminNote').textContent = `Não foi possível carregar os condomínios: ${error.message}`; }
+    }
+    if (db) setInterval(() => { if (user && condo) loadCondo().catch(() => {}); }, 15000);
+  </script>
+</body>
+</html>
